@@ -157,11 +157,17 @@
   function runSummary(r) {
     if (r.type === 'race') return r.intro || r.steps[0].text;
     var main = r.steps.filter(function (s) { return s.kind === 'main'; });
-    var parts = main.length ? main.map(function (s) { return (s.label ? s.label + ': ' : '') + s.text; }) : r.steps.map(function (s) { return s.text; });
+    var txt = function (s) { return s.text || s.sub.join(' + '); };
+    var parts = main.length ? main.map(function (s) { return (s.label ? s.label + ': ' : '') + txt(s); }) : r.steps.map(txt);
     var t = (r.intro ? r.intro + ' · ' : '') + parts.join(' + ');
     return t;
   }
-  function runKmLabel(r) { return r.km === null ? '' : fmtKm(r.km) + ' ק״מ'; }
+  // ק״מ מהשיט; אם אין סה״כ בתא – הערכה לפי השלבים (מסומנת ב-≈)
+  function runKmLabel(r) {
+    if (r.km !== null) return fmtKm(r.km) + ' ק״מ';
+    var est = LogKit.plannedKm(r);
+    return est ? '≈' + fmtKm(est) + ' ק״מ' : '';
+  }
 
   function legend() {
     return '<div class="legend">' + [['easy', 'קלה'], ['quality', 'איכות'], ['long', 'ארוכה'], ['test', 'טסט / תחרות']].map(function (t) {
@@ -287,7 +293,7 @@
     var h = '<div class="rcard t-' + r.type + '"><div class="rchead">' + chip(r.type) +
       '<div class="rct">' + S.RUN_LABELS[r.key] + (r.locked ? ' ' + LOCK : '') + '</div>' +
       '<div class="rcd">' + esc(r.day) + (date ? ' · ' + dm(date) : '') + '</div>' + check(l) + '</div>';
-    if (r.total || r.km !== null) h += '<div class="rctot">' + ltr(r.total || runKmLabel(r)) + '</div>';
+    var kl = r.total || runKmLabel(r); if (kl) h += '<div class="rctot">' + ltr(kl) + '</div>';
     if (r.intro) h += '<div class="rcintro">' + linkTerms(r.intro) + '</div>';
     r.steps.forEach(function (s) {
       h += '<div class="step s-' + s.kind + '"><div class="sk">' + (s.label ? s.label : KIND[s.kind]) + '</div><div class="sb"><div class="stext">' + linkTerms(s.text) + '</div>';

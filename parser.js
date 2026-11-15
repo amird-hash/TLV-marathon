@@ -83,7 +83,7 @@
     var m = /^(\d+(?:\.\d+)?)\s*(.*)$/.exec(text);
     if (!m) return null;
     var rest = m[2].replace(/\([^)]*\)/g, '')
-      .replace(/ק״מ|קל|התאוששות|אופציונלי/g, '').replace(/\s+/g, '');
+      .replace(/ק״מ|קל|התאוששות|אופציונלי|חימום|שחרור/g, '').replace(/\s+/g, '');
     return rest === '' ? parseFloat(m[1]) : null;
   }
   function stepKm(s) {
@@ -126,6 +126,27 @@
 
   // ---------- פורמט B: חופשי ----------
   var INLINE_RE = /^(?:(\d+(?:\.\d+)?)\s*ק״מ\s*)?(עם איכות)\s*:\s*חימום\s+([^,]+),\s*(.+),\s*שחרור\s+(.+)$/;
+
+  // "28:\n6 קל\n10 ק״מ- 4:30\n...\n2 ק״מ קל" – ריצה ארוכה עם מבנה: שורה ראשונה קלה = חימום,
+  // שורה אחרונה קלה / שחרור = שחרור, וכל מה שבאמצע = הסט המרכזי (כל שורה כתת-שלב)
+  var EASY_LINE = /^(\d+(?:\.\d+)?)\s*(?:ק״מ)?\s*קל$/;
+  function parseStructuredLong(t) {
+    var lines = t.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    if (lines.length < 2 || !EASY_LINE.test(lines[0])) return null;
+    var warm = lines.shift(), cool = null;
+    var last = lines[lines.length - 1];
+    var mc = /^(\d+(?:\.\d+)?)\s*(?:ק״מ)?\s*שחרור$/.exec(last);
+    if (lines.length >= 2 && (EASY_LINE.test(last) || mc)) { cool = lines.pop(); if (mc) cool = mc[1] + ' ק״מ'; }
+    var steps = [parseStep(warm, 'warmup')];
+    if (lines.length === 1) steps.push(parseStep(lines[0], 'main'));
+    else {
+      var main = { kind: 'main', text: '', sub: [], notes: [], rec: [] };
+      lines.forEach(function (l) { var ps = parseStep(l, 'main'); main.sub.push(ps.text); main.notes = main.notes.concat(ps.notes); main.rec = main.rec.concat(ps.rec); main.sub = main.sub.concat(ps.sub); });
+      steps.push(main);
+    }
+    if (cool) steps.push(parseStep(cool, 'cooldown'));
+    return { steps: steps, intro: null, total: null };
+  }
 
   function parseFree(t) {
     var steps = [];
@@ -172,7 +193,7 @@
     var p;
     if (/(?:חימום|סט מרכזי)\s*:/.test(t)) p = parseLabeled(t);
     else if (/\(בוקר\)/.test(t) && /\(ערב\)/.test(t)) p = parseSplitDay(t);
-    else p = parseFree(t);
+    else p = (totalPre && parseStructuredLong(t)) || parseFree(t);
 
     res.steps = p.steps.filter(function (s) { return s.text || s.sub.length || s.notes.length || s.rec.length; });
     res.intro = p.intro;

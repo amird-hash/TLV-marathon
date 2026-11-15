@@ -130,23 +130,16 @@
   // יומן: מהשיט (שורה אחרונה לכל ריצה קובעת). במצב דוגמה – יומן מדומה כדי לראות איך זה נראה
   function buildLog() {
     st.log = {};
-    if (!CFG.SAMPLE) {
-      var map = { 'בוצע': 'done', 'חלקי': 'partial', 'דולג': 'skipped' };
-      st.apiLog.forEach(function (r) {
-        var m = /(\d)/.exec(String(r['ריצה']));
-        if (!m) return;
-        var km = r['ק״מ בפועל'];
-        st.log[parseInt(r['שבוע'], 10) + '|r' + m[1]] = { status: map[String(r['סטטוס']).trim()] || 'done', km: km === '' || km === undefined ? null : Number(km) };
-      });
-      return;
-    }
+    if (!CFG.SAMPLE) { st.log = LogKit.logMap(st.apiLog); return; }
     st.weeks.forEach(function (w) {
       sched[w.week].runs.forEach(function (r, i) {
         if (!r.date || r.date >= st.today) return;
         var partial = (w.week + i) % 7 === 0;
-        st.log[w.week + '|' + r.key] = { status: partial ? 'partial' : 'done', km: r.km === null ? null : (partial ? Math.round(r.km * 0.7) : r.km) };
+        st.log[w.week + '|' + r.key] = { status: partial ? 'partial' : 'done', km: r.km === null ? null : (partial ? Math.round(r.km * 0.7) : r.km), rpe: null, pain: null, detail: '', note: '' };
       });
     });
+    var mine = LogKit.logMap(lsGet('sampleLog', []).filter(function (r) { return r['שם'] === st.athlete; }));
+    Object.keys(mine).forEach(function (k) { st.log[k] = mine[k]; });
   }
   function logOf(w, r) { return st.log[w + '|' + r.key] || null; }
   function weekDoneKm(w) {
@@ -159,7 +152,7 @@
 
   // ---------- רכיבים קטנים ----------
   function chip(type) { return '<span class="chip t-' + type + '">' + (TYPE[type].icon ? TYPE[type].icon + ' ' : '') + TYPE[type].name + '</span>'; }
-  function check(l) { return l ? (l.status === 'done' ? '<span class="done" title="בוצע">✓</span>' : l.status === 'partial' ? '<span class="partial" title="חלקי">◐</span>' : '') : ''; }
+  function check(l) { return l ? (l.status === 'done' ? '<span class="done" title="בוצע">✓</span>' : l.status === 'partial' ? '<span class="partial" title="חלקי">◐</span>' : '<span class="skipped" title="דולג">✗</span>') : ''; }
   var LOCK = '<svg class="lock" viewBox="0 0 16 16" width="13" height="13" aria-label="נעולה"><path fill="currentColor" d="M5 7V5a3 3 0 0 1 6 0v2h1v7H4V7zm1.5 0h3V5a1.5 1.5 0 0 0-3 0z"/></svg>';
   function runSummary(r) {
     if (r.type === 'race') return r.intro || r.steps[0].text;
@@ -333,6 +326,8 @@
       h += '</div></div>';
     });
     if (r.warnings.length) h += '<div class="warn">⚠ ' + esc(r.warnings.join(' · ')) + '</div>';
+    h += logSummary(l);
+    h += '<button class="primary" data-act="log" data-week="' + w.week + '" data-key="' + r.key + '">' + (l ? 'עדכון ביצוע' : 'סימון ביצוע') + '</button>';
     if (!r.locked) h += '<button class="ghost" data-act="move" data-week="' + w.week + '" data-key="' + r.key + '">העבר ליום אחר</button>';
     else h += '<div class="lockn">' + LOCK + ' אימון קבוצתי – לא ניתן להזיז</div>';
     return h + '</div>';
@@ -340,7 +335,14 @@
 
   // ---------- חלון תחתון ----------
   function openSheet(html) {
-    var el = $('#sheet'); el.innerHTML = '<div class="back" data-act="close"></div><div class="panel"><button class="x" data-act="close" aria-label="סגור">✕</button>' + html + '</div>';
+    var el = $('#sheet'), panel = $('#sheet .panel');
+    // חלון כבר פתוח (למשל מעבר בין כרטיס לטופס) – מחליפים תוכן בלי אנימציה, ושומרים מיקום גלילה
+    if (!el.hidden && panel) {
+      var y = panel.scrollTop;
+      panel.innerHTML = '<button class="x" data-act="close" aria-label="סגור">✕</button>' + html;
+      panel.scrollTop = y; return;
+    }
+    el.innerHTML = '<div class="back" data-act="close"></div><div class="panel"><button class="x" data-act="close" aria-label="סגור">✕</button>' + html + '</div>';
     el.hidden = false; document.body.classList.add('noscroll');
   }
   function closeSheet() { $('#sheet').hidden = true; document.body.classList.remove('noscroll'); }
@@ -394,6 +396,236 @@
     el.insertBefore(g, el.children[1]);
   }
 
+  // ---------- סימון ביצוע ----------
+  var lf = null; // מצב הטופס הפתוח
+  function ruleOf(topic) { var r = st.settings.filter(function (x) { return x.topic === topic; })[0]; return r ? r.rule : ''; }
+  function logSummary(l) {
+    if (!l) return '';
+    var bits = [LogKit.STATUS_HE[l.status]];
+    if (l.km !== null && l.km !== undefined) bits.push(fmtKm(l.km) + ' ק״מ');
+    if (l.rpe !== null && l.rpe !== undefined) bits.push('RPE ' + l.rpe);
+    if (l.pain !== null && l.pain !== undefined && l.pain > 0) bits.push('כאב ' + l.pain);
+    return '<div class="lsum s-' + l.status + (l.pain >= 3 ? ' pain' : '') + '">' + check(l) + ' ' + ltr(bits.join(' · ')) +
+      (l.detail ? '<div class="ldet">' + esc(l.detail) + '</div>' : '') + (l.note ? '<div class="ldet">„' + esc(l.note) + '“</div>' : '') + '</div>';
+  }
+  function openLogForm(weekNo, key) {
+    var w = weekByNo(weekNo), r = findRun(weekNo, key), prev = logOf(weekNo, r);
+    var parts = LogKit.partsOf(r), sel = {};
+    parts.forEach(function (p) { sel[p.id] = { done: true, reps: p.reps }; });
+    var planned = LogKit.plannedKm(r);
+    lf = {
+      week: weekNo, key: key, status: prev ? prev.status : 'done', parts: parts, sel: sel, planned: planned,
+      date: prev && prev.date ? prev.date : LogKit.defaultDate(r.date, st.today),
+      km: prev && prev.km !== null ? prev.km : planned, kmTouched: false,
+      rpe: prev ? prev.rpe : null, pain: prev && prev.pain !== null ? prev.pain : 0, note: prev ? prev.note : '', saving: false, error: ''
+    };
+    drawLogForm();
+    var pn = $('#sheet .panel'); if (pn) pn.scrollTop = 0;
+  }
+  function readLogForm() {
+    if (!lf) return;
+    var v = function (id) { var el = $('#' + id); return el ? el.value : null; };
+    if (v('lf-date') !== null) lf.date = v('lf-date');
+    if (v('lf-km') !== null) lf.km = v('lf-km') === '' ? null : Number(v('lf-km'));
+    if (v('lf-pain') !== null) lf.pain = Number(v('lf-pain'));
+    if (v('lf-note') !== null) lf.note = v('lf-note');
+  }
+  function drawLogForm() {
+    var w = weekByNo(lf.week), r = findRun(lf.week, lf.key);
+    var h = '<div class="lform"><h3>סימון ביצוע · ' + S.RUN_LABELS[r.key] + ' ' + chip(r.type) + '</h3>' +
+      '<div class="lsub">' + esc(r.day) + (r.date ? ' ' + dm(r.date) : '') + ' · ' + ltr(runSummary(r)) + '</div>' +
+      '<div class="seg3">' + ['done', 'partial', 'skipped'].map(function (s) {
+        return '<button type="button" data-act="lfstatus" data-s="' + s + '" class="' + (lf.status === s ? 'on s-' + s : '') + '">' + (s === 'done' ? '✓ ' : s === 'partial' ? '◐ ' : '✗ ') + LogKit.STATUS_HE[s] + '</button>';
+      }).join('') + '</div>';
+    if (lf.status === 'partial') {
+      h += '<p class="hint">ביצוע חלקי הוא חלק רגיל מאימון. סמן מה עשית:</p><div class="lparts">';
+      lf.parts.forEach(function (p) {
+        var s = lf.sel[p.id];
+        h += '<div class="lp s-' + p.kind + (p.sub ? ' sub' : '') + '"><label><input type="checkbox" data-lf="part" data-id="' + p.id + '"' + (s.done ? ' checked' : '') + '>' +
+          '<span><b>' + esc(p.sub ? '' : p.name) + '</b> ' + ltr(p.text) + '</span></label>' +
+          (p.reps ? '<label class="lreps">חזרות <input type="number" inputmode="numeric" min="0" max="' + p.reps + '" data-lf="reps" data-id="' + p.id + '" value="' + s.reps + '"' + (s.done ? '' : ' disabled') + '> / ' + p.reps + '</label>' : '') + '</div>';
+      });
+      h += '</div>';
+    }
+    h += '<label class="fld">תאריך ביצוע<input type="date" id="lf-date" value="' + esc(lf.date) + '" max="' + st.today + '"></label>';
+    if (lf.status !== 'skipped') {
+      h += '<label class="fld">ק״מ בפועל' + (lf.status === 'partial' && !lf.kmTouched ? ' <small>(הערכה לפי מה שסימנת)</small>' : '') +
+        '<input type="number" id="lf-km" inputmode="decimal" step="0.1" min="0" max="100" value="' + (lf.km === null || lf.km === undefined ? '' : fmtKm(lf.km)) + '" placeholder="למשל 8"></label>';
+      h += '<div class="fld">מאמץ (RPE) <small>1 = קליל מאוד · 10 = מקסימום</small><div class="nums">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (n) {
+        return '<button type="button" data-act="lfrpe" data-n="' + n + '" class="' + (lf.rpe === n ? 'on' : '') + '">' + n + '</button>';
+      }).join('') + '</div></div>';
+      h += '<label class="fld">כאב <b id="lf-painv" class="' + (lf.pain >= 3 ? 'bad' : '') + '">' + lf.pain + '</b> <small>0 = אין · 10 = חזק מאוד</small>' +
+        '<input type="range" id="lf-pain" min="0" max="10" step="1" value="' + lf.pain + '"></label>';
+      var rule = ruleOf('כאב');
+      h += '<div class="prule" id="lf-rule"' + (lf.pain >= 3 && rule ? '' : ' hidden') + '><b>כלל הכאב</b>' + esc(rule) + '</div>';
+    }
+    h += '<label class="fld">הערה<textarea id="lf-note" rows="2" maxlength="500" placeholder="איך הרגיש? מזג אוויר, נעליים, תחושה…">' + esc(lf.note) + '</textarea></label>';
+    h += (lf.error ? '<div class="lerr">' + esc(lf.error) + '</div>' : '') +
+      '<div class="lbtns"><button type="button" class="primary" data-act="lfsave"' + (lf.saving ? ' disabled' : '') + '>' + (lf.saving ? 'שומר…' : 'שמירה') + '</button>' +
+      '<button type="button" class="ghost inline" data-act="open" data-week="' + lf.week + '" data-key="' + lf.key + '">ביטול</button></div></div>';
+    openSheet(h);
+  }
+  function refreshEstimate() {
+    if (!lf || lf.status !== 'partial' || lf.kmTouched) return;
+    lf.km = LogKit.estimateKm(findRun(lf.week, lf.key), lf.parts, lf.sel);
+    var el = $('#lf-km'); if (el) el.value = lf.km === null ? '' : fmtKm(lf.km);
+  }
+  function refreshEstimateNow() { if (!lf.kmTouched) lf.km = LogKit.estimateKm(findRun(lf.week, lf.key), lf.parts, lf.sel); }
+  function saveLog() {
+    readLogForm();
+    var r = findRun(lf.week, lf.key);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(lf.date || '')) { lf.error = 'בחר תאריך ביצוע'; drawLogForm(); return; }
+    if (lf.date > st.today) { lf.error = 'אי אפשר לסמן ביצוע בתאריך עתידי'; drawLogForm(); return; }
+    if (lf.km !== null && (isNaN(lf.km) || lf.km < 0 || lf.km > 100)) { lf.error = 'ק״מ צריך להיות מספר בין 0 ל-100'; drawLogForm(); return; }
+    var skipped = lf.status === 'skipped';
+    var row = {
+      'שם': st.athlete, 'תכנית': plan(), 'שבוע': lf.week, 'ריצה': S.RUN_LABELS[lf.key], 'תאריך ביצוע': lf.date,
+      'סטטוס': LogKit.STATUS_HE[lf.status], 'ק״מ בפועל': skipped || lf.km === null ? '' : lf.km,
+      'פירוט': lf.status === 'partial' ? LogKit.detailText(lf.parts, lf.sel) : '',
+      'RPE 1-10': skipped || lf.rpe === null ? '' : lf.rpe, 'כאב 0-10': skipped ? '' : lf.pain, 'הערה': lf.note || ''
+    };
+    var body = { action: 'log', name: st.athlete, week: lf.week, run: lf.key, date: row['תאריך ביצוע'], status: row['סטטוס'], km: row['ק״מ בפועל'],
+      detail: row['פירוט'], rpe: row['RPE 1-10'], pain: row['כאב 0-10'], note: row['הערה'] };
+    var done = function () {
+      st.apiLog.push(row); buildLog(); saveCache();
+      var weekNoSaved = lf.week, keySaved = lf.key; lf = null;
+      render(); openSheet(runCard(weekByNo(weekNoSaved), findRun(weekNoSaved, keySaved)) + '<div class="toast">נשמר ✓</div>');
+      var pn = $('#sheet .panel'); if (pn) pn.scrollTop = 0;
+    };
+    if (CFG.SAMPLE) { var s = lsGet('sampleLog', []); s.push(row); lsSet('sampleLog', s); done(); return; }
+    lf.saving = true; lf.error = ''; drawLogForm();
+    apiPost(body).then(function (res) {
+      if (!res.ok) throw new Error(res.error || 'השמירה נכשלה');
+      done();
+    }).catch(function (err) {
+      if (!lf) return;
+      lf.saving = false;
+      lf.error = err.message && !/fetch|Failed|Network|JSON/i.test(err.message) ? err.message : 'לא הצלחתי לשמור. בדוק חיבור לאינטרנט ונסה שוב.';
+      drawLogForm();
+    });
+  }
+  function saveCache() {
+    if (CFG.SAMPLE) return;
+    var c = lsGet('planCache:' + st.athlete, null);
+    if (c) { c.log = st.apiLog; c.schedule = st.moves; lsSet('planCache:' + st.athlete, c); }
+  }
+
+  // ---------- מסך מאמן (?coach=1) ----------
+  var cs = { week: null, data: {}, loading: false, error: null, copied: false };
+  function coachInit() {
+    document.title = 'מאמן · מרתון תל אביב 2027';
+    if (CFG.SAMPLE) {
+      var P0 = window.SAMPLE_PLAN;
+      applyPlan({ plan: S.valuesToRows(P0.tabs['תכנית סופית'], false), settings: P0.settings, days: P0.days, schedule: [], log: [] });
+      cs.week = S.findWeek(st.weeks, st.today).week.week; coachRender(); return;
+    }
+    var cached = lsGet('coachBase', null);
+    if (cached) { applyPlan(cached); cs.week = S.findWeek(st.weeks, st.today).week.week; }
+    coachRender();
+    apiGet({ action: 'athletes' }).then(function (a) {
+      if (!a.ok || !a.athletes.length) throw new Error(a.error || 'אין חברים פעילים בלשונית Athletes');
+      st.athletes = a.athletes;
+      return apiGet({ action: 'plan', athlete: a.athletes[0].name });
+    }).then(function (res) {
+      if (!res.ok) throw new Error(res.error);
+      res.schedule = []; res.log = [];
+      lsSet('coachBase', res); applyPlan(res);
+      if (cs.week === null) cs.week = S.findWeek(st.weeks, st.today).week.week;
+      coachLoadWeek();
+    }).catch(function (err) { cs.error = err.message && !/fetch|Failed/i.test(err.message) ? err.message : NET_ERR; coachRender(); });
+  }
+  function coachLoadWeek() {
+    var wk = cs.week;
+    if (CFG.SAMPLE) { coachRender(); return; }
+    cs.loading = true; cs.error = null; coachRender();
+    apiGet({ action: 'coach', week: wk }).then(function (res) {
+      if (!res.ok) throw new Error(res.error);
+      cs.data[wk] = res; cs.loading = false; coachRender();
+    }).catch(function (err) {
+      cs.loading = false; cs.error = err.message && !/fetch|Failed/i.test(err.message) ? err.message : NET_ERR; coachRender();
+    });
+  }
+  // לכל חבר: השיבוץ שלו לשבוע (עם הזזות) והיומן שלו
+  function coachRows(w, res) {
+    var base = S.scheduleWeek(w, { days: st.days, personal: {} }).runs;
+    return (res ? res.athletes : []).map(function (a) {
+      var personal = S.personalFor(a.schedule, a.name, a.plan, w.week);
+      var runs = S.scheduleWeek(w, { days: st.days, personal: personal }).runs;
+      var log = LogKit.logMap(a.log);
+      var cells = base.map(function (b) {
+        var r = runs.filter(function (x) { return x.key === b.key; })[0];
+        return { run: r, moved: r && r.source === 'personal' ? r.day : null, log: log[w.week + '|' + b.key] || null };
+      });
+      var km = 0, n = 0, pain = [];
+      cells.forEach(function (c) {
+        if (c.log && c.log.km) km += c.log.km;
+        if (c.log && c.log.status !== 'skipped') n++;
+        if (c.log && c.log.pain >= 3) pain.push({ run: c.run, pain: c.log.pain, note: c.log.note });
+      });
+      return { name: a.name, cells: cells, km: km, n: n, pain: pain };
+    });
+  }
+  function coachView() {
+    if (!st.weeks.length) return '<main class="pick"><div class="hero-sun"></div><h1>מסך מאמן</h1><p class="sub">' + esc(cs.error || 'טוען…') + '</p>' +
+      (cs.error ? '<div class="names"><button class="name" data-act="cretry">נסה שוב</button></div>' : '') + '</main>';
+    var w = weekByNo(cs.week) || st.weeks[0], idx = st.weeks.indexOf(w);
+    var res = CFG.SAMPLE ? { athletes: CFG.SAMPLE_ATHLETES.map(function (a) { return { name: a.name, plan: a.plan, schedule: [], log: lsGet('sampleLog', []).filter(function (r) { return r['שם'] === a.name && +r['שבוע'] === w.week; }) }; }), row: null } : cs.data[w.week];
+    var base = S.scheduleWeek(w, { days: st.days, personal: {} }).runs;
+    var h = '<main class="coach"><header class="whead ' + PERIOD_CLASS(w.period) + '"><div class="wtop">' +
+      '<button class="nav" data-act="cprev" ' + (idx <= 0 ? 'disabled' : '') + ' aria-label="שבוע קודם">→</button>' +
+      '<div class="wtitle"><div class="wnum">מאמן · שבוע ' + w.week + '</div><div class="wper">' + esc(w.period) + ' · ' + (w.weekStart ? '<bdi dir="ltr">' + dm(w.weekStart) + ' – ' + dm(S.addDays(w.weekStart, 6)) + '</bdi>' : '') + ' · ' + ltr(w.kmText || '—') + ' ק״מ</div></div>' +
+      '<button class="nav" data-act="cnext" ' + (idx >= st.weeks.length - 1 ? 'disabled' : '') + ' aria-label="שבוע הבא">←</button></div></header>';
+    if (!res) return h + '<p class="sub center">' + esc(cs.error || 'טוען את השבוע…') + '</p>' + (cs.error ? '<button class="ghost" data-act="cretry">נסה שוב</button>' : '') + '</main>';
+    var rows = coachRows(w, res);
+    h += '<div class="ctable-wrap"><table class="ctable"><thead><tr><th>חבר</th>' + base.map(function (b) {
+      return '<th><span class="dot t-' + b.type + '"></span>' + S.RUN_LABELS[b.key].replace('ריצה ', 'ר') + '<small>' + esc(b.day) + (b.km !== null ? ' · ' + fmtKm(b.km) : '') + '</small></th>';
+    }).join('') + '<th>סה״כ</th></tr></thead><tbody>';
+    rows.forEach(function (a) {
+      h += '<tr><th>' + esc(a.name) + '</th>' + a.cells.map(function (c) {
+        var l = c.log, cls = l ? 's-' + l.status : 'empty';
+        if (l && l.pain >= 3) cls += ' pain';
+        var inner = l ? '<b>' + (l.status === 'done' ? '✓' : l.status === 'partial' ? '◐' : '✗') + '</b>' +
+          (l.km !== null ? '<span>' + fmtKm(l.km) + '</span>' : '') +
+          (l.rpe !== null ? '<small>RPE ' + l.rpe + '</small>' : '') + (l.pain ? '<small>כאב ' + l.pain + '</small>' : '') : '<b>·</b>';
+        return '<td class="' + cls + '"' + (l && (l.detail || l.note) ? ' title="' + esc([l.detail, l.note].filter(Boolean).join(' · ')) + '"' : '') + '>' + inner +
+          (c.moved ? '<em class="mvd">⇄ ' + esc(c.moved) + '</em>' : '') + '</td>';
+      }).join('') + '<td class="tot"><b>' + fmtKm(a.km) + '</b><small>מתוך ' + ltr(w.kmText || '—') + '</small><small>' + a.n + '/' + base.length + ' ריצות</small></td></tr>';
+    });
+    h += '</tbody></table></div><p class="hint">✓ בוצע · ◐ חלקי · ✗ דולג · ⇄ הוזז ליום אחר · אדום = כאב 3 ומעלה. לחיצה ארוכה על תא מציגה פירוט והערה.</p>';
+    var painList = [];
+    rows.forEach(function (a) { a.pain.forEach(function (p) { painList.push('<li><b>' + esc(a.name) + '</b> · ' + S.RUN_LABELS[p.run.key] + ' · כאב ' + p.pain + (p.note ? ' – ' + esc(p.note) : '') + '</li>'); }); });
+    if (painList.length) h += '<div class="card alert"><div class="lbl">כאב 3 ומעלה השבוע</div><ul>' + painList.join('') + '</ul><p class="hint">' + esc(ruleOf('כאב')) + '</p></div>';
+    // עמודות המעקב הפרטיות שלי מהשיט – רק כאן
+    var priv = res.row ? Object.keys(res.row).filter(function (k) { return /^(ק״מ בפועל|בוצעו ריצות|RPE שבועי|כאב 0-10|סטטוס|הערות \/ התאמות|סיכום לוואטסאפ)/.test(k); })
+      .filter(function (k) { var v = String(res.row[k]).trim(); return v !== '' && !/^#/.test(v); }) : [];
+    if (priv.length) h += '<div class="card"><div class="lbl">המעקב שלך בשיט (פרטי)</div><dl class="priv">' + priv.map(function (k) { return '<dt>' + esc(k) + '</dt><dd>' + esc(res.row[k]) + '</dd>'; }).join('') + '</dl></div>';
+    var text = coachSummary(w, base, rows);
+    h += '<div class="card"><div class="lbl">סיכום לוואטסאפ</div><textarea id="wa" class="wa" rows="8" readonly>' + esc(text) + '</textarea>' +
+      '<button class="primary" data-act="ccopy">' + (cs.copied ? 'הועתק ✓ – הדבק בקבוצה' : 'העתק סיכום') + '</button></div>';
+    return h + '</main>';
+  }
+  function coachSummary(w, base, rows) {
+    var t = '🏃 מרתון ת״א · שבוע ' + w.week + (w.weekStart ? ' (' + dm(w.weekStart) + '–' + dm(S.addDays(w.weekStart, 6)) + ')' : '') + ' · ' + w.period + '\n';
+    t += 'מתוכנן: ' + (w.kmText || '—') + ' ק״מ · ' + base.length + ' ריצות\n\n';
+    rows.forEach(function (a) {
+      var marks = a.cells.map(function (c) { return !c.log ? '·' : c.log.status === 'done' ? '✓' : c.log.status === 'partial' ? '◐' : '✗'; }).join('');
+      t += a.name + ' ' + marks + ' · ' + fmtKm(a.km) + ' ק״מ\n';
+    });
+    var hurt = [];
+    rows.forEach(function (a) { a.pain.forEach(function (p) { hurt.push(a.name + ' (' + S.RUN_LABELS[p.run.key] + ', כאב ' + p.pain + ')'); }); });
+    if (hurt.length) t += '\n⚠️ לשים לב לכאב: ' + hurt.join(', ') + '\n';
+    var next = weekByNo(w.week + 1);
+    if (next) t += '\nשבוע הבא: שבוע ' + next.week + ' · ' + next.period + ' · ' + (next.kmText || '—') + ' ק״מ';
+    return t;
+  }
+  function coachRender() { $('#app').innerHTML = coachView(); }
+  function coachCopy() {
+    var ta = $('#wa'), text = ta ? ta.value : '';
+    var ok = function () { cs.copied = true; coachRender(); setTimeout(function () { cs.copied = false; coachRender(); }, 2500); };
+    var fallback = function () { if (ta) { ta.removeAttribute('readonly'); ta.focus(); ta.select(); document.execCommand && document.execCommand('copy'); ta.setAttribute('readonly', ''); } ok(); };
+    try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
+  }
+
   // ---------- ציור ראשי ----------
   function render() {
     var app = $('#app');
@@ -432,7 +664,21 @@
       case 'move': e.stopPropagation(); openMove(+d.week, d.key); break;
       case 'moveto': doMove(+d.week, d.key, d.day); break;
       case 'resetweek': resetWeek(); break;
-      case 'close': closeSheet(); break;
+      case 'close': lf = null; closeSheet(); break;
+      case 'log': openLogForm(+d.week, d.key); break;
+      case 'lfstatus': readLogForm(); lf.status = d.s; lf.error = '';
+        if (d.s === 'done' && !lf.kmTouched) lf.km = lf.planned;
+        if (d.s === 'partial') refreshEstimateNow();
+        drawLogForm(); break;
+      case 'lfrpe': readLogForm(); lf.rpe = lf.rpe === +d.n ? null : +d.n; drawLogForm(); break;
+      case 'lfsave': saveLog(); break;
+      case 'cprev': case 'cnext': {
+        var ci = st.weeks.indexOf(weekByNo(cs.week)) + (a === 'cnext' ? 1 : -1);
+        if (ci >= 0 && ci < st.weeks.length) { cs.week = st.weeks[ci].week; if (!cs.data[cs.week]) coachLoadWeek(); else coachRender(); }
+        break;
+      }
+      case 'cretry': if (!st.weeks.length) coachInit(); else coachLoadWeek(); break;
+      case 'ccopy': coachCopy(); break;
       case 'mprev': case 'mnext': {
         var y = +st.month.slice(0, 4), m = +st.month.slice(5, 7) + (a === 'mnext' ? 1 : -1);
         if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; }
@@ -447,7 +693,28 @@
       }
     }
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { lf = null; closeSheet(); } });
+  // שדות בטופס סימון הביצוע
+  document.addEventListener('input', function (e) {
+    if (!lf) return;
+    var t = e.target;
+    if (t.id === 'lf-km') { lf.kmTouched = true; return; }
+    if (t.id === 'lf-pain') {
+      lf.pain = +t.value; var v = $('#lf-painv'); if (v) { v.textContent = t.value; v.className = lf.pain >= 3 ? 'bad' : ''; }
+      var rl = $('#lf-rule'); if (rl) rl.hidden = !(lf.pain >= 3 && ruleOf('כאב'));
+      return;
+    }
+    if (t.dataset.lf === 'reps') { lf.sel[t.dataset.id].reps = +t.value; refreshEstimate(); }
+  });
+  document.addEventListener('change', function (e) {
+    if (!lf) return;
+    var t = e.target;
+    if (t.dataset.lf === 'part') {
+      lf.sel[t.dataset.id].done = t.checked;
+      var rep = t.closest('.lp').querySelector('[data-lf="reps"]'); if (rep) rep.disabled = !t.checked;
+      refreshEstimate();
+    }
+  });
 
   // החלקה בין שבועות (RTL: החלקה ימינה = שבוע קודם)
   var tx = null, ty = null, lp = null;
@@ -465,8 +732,11 @@
   }, { passive: true });
 
   // ---------- התחלה ----------
-  if (st.athlete && plan()) loadData();
-  render();
-  loadAthletes();
+  if (qs('coach')) { coachInit(); }
+  else {
+    if (st.athlete && plan()) loadData();
+    render();
+    loadAthletes();
+  }
   window.__app = { st: st, render: render };
 })();

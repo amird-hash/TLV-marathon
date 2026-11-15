@@ -251,3 +251,10 @@ main { max-width: 640px; margin: 0 auto; padding: 0 14px calc(92px + env(safe-ar
 
 /* היום: מסגרת סביב כל השורה (תווית + ריצות / מנוחה), בכל יום */
 .day.today { border: 2px solid var(--sun); border-radius: 16px; padding: 6px; margin: 2px -8px; background: color-mix(in srgb, var(--sun) 7%, transparent); }
+
+/* מחשב: עמודה מרכזית צרה כמו בטלפון. לא משפיע על מסכים צרים מ-700px */
+@media (min-width: 700px) {
+  main:not(.coach) { max-width: 520px; }
+  .panel { max-width: 520px; border-radius: 22px 22px 0 0; }
+  .tabs button { max-width: 160px; }
+}

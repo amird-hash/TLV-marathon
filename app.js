@@ -336,26 +336,18 @@
   // ---------- ידע ----------
   // טווחים כמו "50–60%" או "15–30" מתהפכים בעברית – עוטפים אותם בכיוון שמאל-לימין
   function kt(t) { return esc(t).replace(/(\d+(?:\.\d+)?%?\s*[–-]\s*\d+(?:\.\d+)?%?)/g, '<bdi dir="ltr">$1</bdi>'); }
-  var kn = { cat: 'הכל' };
   function viewLearn() {
-    var K = window.KNOWLEDGE || { articles: [], cats: [] };
-    var list = K.articles.filter(function (a) { return kn.cat === 'הכל' || a.cat === kn.cat; });
-    var card = function (a) {
-      return '<button class="kcard" data-act="article" data-id="' + a.id + '"><div class="ktags"><span class="ktag">' + esc(a.cat) + '</span>' + (a.rec ? '<span class="krec">★ מומלץ</span>' : '') + '</div>' +
-        '<b>' + kt(a.title) + '</b><p>' + kt(a.summary) + '</p><span class="kmore">קרא עוד ←</span></button>';
-    };
-    var h = '<main class="learn"><div class="khead"><h2>מדריך ידע</h2><p>' + K.articles.length + ' מאמרים · עודכן ' + esc(K.updated || '') + '</p></div>' +
-      '<div class="kchips">' + ['הכל'].concat(K.cats).map(function (c) { return '<button data-act="kcat" data-c="' + esc(c) + '" class="' + (kn.cat === c ? 'on' : '') + '">' + esc(c) + '</button>'; }).join('') + '</div>';
-    if (kn.cat === 'הכל') {
-      h += '<h3 class="ksec">★ מומלצים</h3><div class="kgrid">' + K.articles.filter(function (a) { return a.rec; }).map(card).join('') + '</div>';
-      h += '<h3 class="ksec">כל המאמרים</h3><div class="kgrid">' + K.articles.filter(function (a) { return !a.rec; }).map(card).join('') + '</div>';
-    } else h += '<div class="kgrid">' + list.map(card).join('') + '</div>';
-    return h + '</main>';
+    var K = window.KNOWLEDGE || { articles: [] };
+    return '<main class="learn"><div class="khead"><h2>מדריך ידע</h2><p>' + K.articles.length + ' מאמרים · עודכן ' + esc(K.updated || '') + '</p></div>' +
+      '<div class="kgrid">' + K.articles.map(function (a) {
+        return '<button class="kcard" data-act="article" data-id="' + a.id + '"><div class="ktags"><span class="ktag">' + esc(a.cat) + '</span></div>' +
+          '<b>' + kt(a.title) + '</b><p>' + kt(a.summary) + '</p><span class="kmore">קרא עוד ←</span></button>';
+      }).join('') + '</div></main>';
   }
   function openArticle(id) {
     var K = window.KNOWLEDGE || { articles: [] };
     var a = K.articles.filter(function (x) { return x.id === id; })[0]; if (!a) return;
-    var h = '<article class="kart"><div class="ktags"><span class="ktag">' + esc(a.cat) + '</span>' + (a.rec ? '<span class="krec">★ מומלץ</span>' : '') + '</div><h3>' + kt(a.title) + '</h3><p class="klead">' + kt(a.summary) + '</p>';
+    var h = '<article class="kart"><div class="ktags"><span class="ktag">' + esc(a.cat) + '</span></div><h3>' + kt(a.title) + '</h3><p class="klead">' + kt(a.summary) + '</p>';
     a.blocks.forEach(function (b) {
       if (b.h) h += '<h4>' + kt(b.h) + '</h4>';
       if (b.p) h += '<p>' + kt(b.p) + (b.link ? ' <button class="klink" data-act="article" data-id="' + b.link + '">למאמר ←</button>' : '') + '</p>';
@@ -759,7 +751,6 @@
       case 'cpin': coachSubmitPin(); break;
       case 'pfsave': saveProfile(); break;
       case 'pfdist': $('#pf-dist').value = d.v; pfRecalc('dist'); break;
-      case 'kcat': kn.cat = d.c; render(); break;
       case 'article': openArticle(d.id); break;
       case 'gocoach': location.href = location.pathname + '?coach=1'; break;
       case 'gohome': location.href = location.pathname; break;

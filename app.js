@@ -52,7 +52,7 @@
   var st = {
     today: qs('today') || S.todayISO(),
     athlete: lsGet('athlete', null),
-    screen: lsGet('screen', 'week'),
+    screen: 'week', // תמיד נפתחים בבית
     weekNo: null, month: null,
     weeks: [], settings: [], days: S.DEFAULT_DAYS, moves: CFG.SAMPLE ? lsGet('moves', []) : [], log: {}, apiLog: [],
     athletes: CFG.SAMPLE ? CFG.SAMPLE_ATHLETES : lsGet('athletes', []), loading: false, error: null
@@ -647,7 +647,7 @@
     if (a === 'term') { e.stopPropagation(); openTerm(d.topic); return; }
     if (a === 'mv' || (a === 'open' && e.target.closest('[data-act="move"]'))) return;
     switch (a) {
-      case 'pick': st.athlete = d.name; lsSet('athlete', st.athlete); st.weekNo = null; st.weeks = []; loadData(); render(); break;
+      case 'pick': st.athlete = d.name; lsSet('athlete', st.athlete); st.screen = 'week'; lsSet('screen', 'week'); st.weekNo = null; st.weeks = []; loadData(); render(); window.scrollTo(0, 0); break;
       case 'retry': loadData(); render(); break;
       case 'switch': st.athlete = null; lsSet('athlete', null); st.weekNo = null; st.weeks = []; render(); break;
       case 'tab': st.screen = d.t; lsSet('screen', st.screen); render(); window.scrollTo(0, 0); break;

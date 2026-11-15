@@ -255,6 +255,7 @@ main { max-width: 640px; margin: 0 auto; padding: 0 14px calc(92px + env(safe-ar
 /* מחשב: עמודה מרכזית צרה כמו בטלפון. לא משפיע על מסכים צרים מ-700px */
 @media (min-width: 700px) {
   main:not(.coach) { max-width: 520px; }
+  main { padding-top: 48px; }
   .panel { max-width: 520px; border-radius: 22px 22px 0 0; }
   .tabs button { max-width: 160px; }
 }

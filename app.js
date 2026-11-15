@@ -256,7 +256,7 @@
     st.weeks.forEach(function (w) { sched[w.week].runs.forEach(function (r) { if (r.date) (byDate[r.date] = byDate[r.date] || []).push({ w: w, r: r }); }); });
     var h = '<div class="mnav"><button class="nav" data-act="mprev" ' + (st.month <= firstWeekMonth ? 'disabled' : '') + '>→</button><h2>' + MONTHS[m - 1] + ' ' + y + '</h2>' +
       '<button class="nav" data-act="mnext" ' + (st.month >= lastWeekMonth ? 'disabled' : '') + '>←</button></div>';
-    h += '<div class="grid"><div class="gh wk">שבוע</div>' + S.DAYS.map(function (d) { return '<div class="gh">' + d.slice(0, 3) + '</div>'; }).join('');
+    h += '<div class="grid"><div class="gh wk">שבוע</div>' + ['ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳', 'א׳'].map(function (d, i) { return '<div class="gh" title="' + S.DAYS[i] + '">' + d + '</div>'; }).join('');
     for (var row = 0; row < 6; row++) {
       var ws = S.addDays(start, row * 7);
       if (row >= 4 && ws.slice(0, 7) > st.month) break;

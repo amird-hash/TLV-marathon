@@ -83,6 +83,7 @@
     st.days = S.daysFromRows(res.days);
     st.moves = res.schedule || [];
     st.apiLog = res.log || [];
+    st.profile = CFG.SAMPLE ? lsGet('sampleProfile:' + st.athlete, null) : (res.profile || null);
     recompute();
     buildLog();
   }
@@ -279,11 +280,91 @@
   // ---------- הגדרות ----------
   function viewSettings() {
     return '<main class="settings"><h2>הגדרות</h2><div class="card"><div class="lbl">אני</div><div class="val">' + esc(st.athlete) + ' · ' + esc(plan()) + '</div>' +
-      '<button class="ghost" data-act="switch">החלף שם</button></div>' +
+      '<button class="ghost" data-act="switch">החלף שם</button></div>' + profileCard() +
       '<div class="card"><div class="lbl">מקרא</div>' + legend() + '<div class="steplg"><span class="s-warmup">חימום</span><span class="s-main">סט מרכזי</span><span class="s-cooldown">שחרור</span></div></div>' +
       (st.athlete === (CFG.COACH_NAME || 'אמיר') ? '<div class="card"><div class="lbl">מאמן</div><button class="primary" data-act="gocoach">מסך מאמן</button></div>' : '') +
       '<div class="card"><div class="lbl">הזזות אישיות</div><div class="val">' + st.moves.filter(function (x) { return x['שם'] === st.athlete; }).length + ' שינויים</div></div>' +
       (CFG.SAMPLE ? '<div class="card note">מצב דוגמה: הנתונים מקובץ מקומי, והיומן (✓) מדומה.</div>' : '') + '</main>';
+  }
+
+  // ---------- פרופיל: מרחק ומטרה ----------
+  function secOf(t) { // "3:15" / "3:15:00" → שניות (שעות:דקות[:שניות])
+    var m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(String(t || '').trim());
+    return m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+(m[3] || 0)) : null;
+  }
+  function paceSec(t) { var m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim()); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+  function fmtTime(s) { s = Math.round(s); var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h + ':' + (m < 10 ? '0' : '') + m + ':' + (x < 10 ? '0' : '') + x; }
+  function fmtPace(s) { s = Math.round(s); var m = Math.floor(s / 60), x = s % 60; return m + ':' + (x < 10 ? '0' : '') + x; }
+  var pf = { msg: '', saving: false };
+  function profileCard() {
+    var p = st.profile || {};
+    var dist = p.distance || 42.2;
+    return '<div class="card prof"><div class="lbl">המטרה שלי</div>' +
+      '<label class="fld">מרחק (ק״מ)<input id="pf-dist" type="number" inputmode="decimal" step="0.1" min="1" max="100" value="' + esc(dist) + '"></label>' +
+      '<div class="pfchips">' + [['42.2', 'מרתון'], ['21.1', 'חצי'], ['10', '10K']].map(function (c) { return '<button type="button" data-act="pfdist" data-v="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="pfrow"><label class="fld">זמן מטרה <small>למשל 3:15:00</small><input id="pf-time" inputmode="numeric" placeholder="3:15:00" value="' + esc(p.goalTime || '') + '"></label>' +
+      '<label class="fld">קצב מטרה <small>לק״מ, למשל 4:37</small><input id="pf-pace" inputmode="numeric" placeholder="4:37" value="' + esc(p.goalPace || '') + '"></label></div>' +
+      '<p class="hint start">ממלאים אחד מהשניים – השני מחושב לבד. המאמן רואה את המטרה שלך.</p>' +
+      (pf.msg ? '<div class="' + (pf.ok ? 'pfok' : 'lerr') + '">' + esc(pf.msg) + '</div>' : '') +
+      '<button class="primary" data-act="pfsave"' + (pf.saving ? ' disabled' : '') + '>' + (pf.saving ? 'שומר…' : 'שמירת מטרה') + '</button></div>';
+  }
+  function pfRecalc(src) {
+    var d = Number(($('#pf-dist') || {}).value), ti = $('#pf-time'), pa = $('#pf-pace');
+    if (!ti || !pa || !(d > 0)) return;
+    if (src === 'time' || src === 'dist') { var s = secOf(ti.value); if (s) pa.value = fmtPace(s / d); }
+    else if (src === 'pace') { var ps = paceSec(pa.value); if (ps) ti.value = fmtTime(ps * d); }
+  }
+  function saveProfile() {
+    var d = Number($('#pf-dist').value), t = $('#pf-time').value.trim(), pc = $('#pf-pace').value.trim();
+    if (/^\d{1,2}:\d{2}$/.test(t)) t += ':00';
+    pf.ok = false;
+    if (!(d > 0 && d <= 100)) { pf.msg = 'מרחק צריך להיות בין 1 ל-100 ק״מ'; render(); return; }
+    if (t && !secOf(t)) { pf.msg = 'זמן מטרה בפורמט 3:15:00'; render(); return; }
+    if (pc && !paceSec(pc)) { pf.msg = 'קצב מטרה בפורמט 4:37'; render(); return; }
+    var prof = { distance: d, goalTime: t, goalPace: pc };
+    var done = function () { st.profile = prof; pf.saving = false; pf.ok = true; pf.msg = 'נשמר ✓'; saveCache(); render(); };
+    if (CFG.SAMPLE) { lsSet('sampleProfile:' + st.athlete, prof); done(); return; }
+    pf.saving = true; pf.msg = ''; render();
+    apiPost({ action: 'profile', name: st.athlete, distance: d, goalTime: t, goalPace: pc }).then(function (res) {
+      if (!res.ok) throw new Error(res.error || 'השמירה נכשלה');
+      done();
+    }).catch(function (err) {
+      pf.saving = false; pf.msg = err.message && !/fetch|Failed|JSON/i.test(err.message) ? err.message : 'לא הצלחתי לשמור. בדוק חיבור ונסה שוב.'; render();
+    });
+  }
+
+  // ---------- ידע ----------
+  // טווחים כמו "50–60%" או "15–30" מתהפכים בעברית – עוטפים אותם בכיוון שמאל-לימין
+  function kt(t) { return esc(t).replace(/(\d+(?:\.\d+)?%?\s*[–-]\s*\d+(?:\.\d+)?%?)/g, '<bdi dir="ltr">$1</bdi>'); }
+  var kn = { cat: 'הכל' };
+  function viewLearn() {
+    var K = window.KNOWLEDGE || { articles: [], cats: [] };
+    var list = K.articles.filter(function (a) { return kn.cat === 'הכל' || a.cat === kn.cat; });
+    var card = function (a) {
+      return '<button class="kcard" data-act="article" data-id="' + a.id + '"><div class="ktags"><span class="ktag">' + esc(a.cat) + '</span>' + (a.rec ? '<span class="krec">★ מומלץ</span>' : '') + '</div>' +
+        '<b>' + kt(a.title) + '</b><p>' + kt(a.summary) + '</p><span class="kmore">קרא עוד ←</span></button>';
+    };
+    var h = '<main class="learn"><div class="khead"><h2>מדריך ידע</h2><p>' + K.articles.length + ' מאמרים · עודכן ' + esc(K.updated || '') + '</p></div>' +
+      '<div class="kchips">' + ['הכל'].concat(K.cats).map(function (c) { return '<button data-act="kcat" data-c="' + esc(c) + '" class="' + (kn.cat === c ? 'on' : '') + '">' + esc(c) + '</button>'; }).join('') + '</div>';
+    if (kn.cat === 'הכל') {
+      h += '<h3 class="ksec">★ מומלצים</h3><div class="kgrid">' + K.articles.filter(function (a) { return a.rec; }).map(card).join('') + '</div>';
+      h += '<h3 class="ksec">כל המאמרים</h3><div class="kgrid">' + K.articles.filter(function (a) { return !a.rec; }).map(card).join('') + '</div>';
+    } else h += '<div class="kgrid">' + list.map(card).join('') + '</div>';
+    return h + '</main>';
+  }
+  function openArticle(id) {
+    var K = window.KNOWLEDGE || { articles: [] };
+    var a = K.articles.filter(function (x) { return x.id === id; })[0]; if (!a) return;
+    var h = '<article class="kart"><div class="ktags"><span class="ktag">' + esc(a.cat) + '</span>' + (a.rec ? '<span class="krec">★ מומלץ</span>' : '') + '</div><h3>' + kt(a.title) + '</h3><p class="klead">' + kt(a.summary) + '</p>';
+    a.blocks.forEach(function (b) {
+      if (b.h) h += '<h4>' + kt(b.h) + '</h4>';
+      if (b.p) h += '<p>' + kt(b.p) + (b.link ? ' <button class="klink" data-act="article" data-id="' + b.link + '">למאמר ←</button>' : '') + '</p>';
+      if (b.ul) h += '<ul>' + b.ul.map(function (x) { return '<li>' + kt(x) + '</li>'; }).join('') + '</ul>';
+      if (b.zones) h += '<div class="kzones">' + b.zones.map(function (z, i) { return '<div class="kz z' + (i + 1) + '"><b>' + kt(z[0]) + '</b><small>' + kt(z[1]) + '</small><span>' + kt(z[2]) + '</span></div>'; }).join('') + '</div>';
+      if (b.tip) h += '<div class="ktip"><b>💡 מהמאמן</b>' + kt(b.tip) + (b.link ? ' <button class="klink" data-act="article" data-id="' + b.link + '">למאמר ←</button>' : '') + '</div>';
+    });
+    openSheet(h + '</article>');
+    var pn = $('#sheet .panel'); if (pn) pn.scrollTop = 0;
   }
 
   // ---------- כרטיס אימון ----------
@@ -484,7 +565,7 @@
   function saveCache() {
     if (CFG.SAMPLE) return;
     var c = lsGet('planCache:' + st.athlete, null);
-    if (c) { c.log = st.apiLog; c.schedule = st.moves; lsSet('planCache:' + st.athlete, c); }
+    if (c) { c.log = st.apiLog; c.schedule = st.moves; c.profile = st.profile; lsSet('planCache:' + st.athlete, c); }
   }
 
   // ---------- מסך מאמן (?coach=1) ----------
@@ -586,6 +667,9 @@
     var priv = res.row ? Object.keys(res.row).filter(function (k) { return /^(ק״מ בפועל|בוצעו ריצות|RPE שבועי|כאב 0-10|סטטוס|הערות \/ התאמות|סיכום לוואטסאפ)/.test(k); })
       .filter(function (k) { var v = String(res.row[k]).trim(); return v !== '' && !/^#/.test(v); }) : [];
     if (priv.length) h += '<div class="card"><div class="lbl">המעקב שלך בשיט (פרטי)</div><dl class="priv">' + priv.map(function (k) { return '<dt>' + esc(k) + '</dt><dd>' + esc(res.row[k]) + '</dd>'; }).join('') + '</dl></div>';
+    var goals = res.athletes.filter(function (a) { return a.profile; });
+    if (goals.length) h += '<div class="card"><div class="lbl">מטרות החברים</div><table class="goals"><thead><tr><th>חבר</th><th>מרחק</th><th>זמן</th><th>קצב</th></tr></thead><tbody>' +
+      res.athletes.map(function (a) { var p = a.profile || {}; return '<tr><th>' + esc(a.name) + '</th><td>' + (p.distance ? esc(p.distance) : '—') + '</td><td>' + ltr(p.goalTime || '—') + '</td><td>' + ltr(p.goalPace || '—') + '</td></tr>'; }).join('') + '</tbody></table></div>';
     var text = coachSummary(w, base, rows);
     h += '<div class="card"><div class="lbl">סיכום לוואטסאפ</div><textarea id="wa" class="wa" rows="8" readonly>' + esc(text) + '</textarea>' +
       '<button class="primary" data-act="ccopy">' + (cs.copied ? 'הועתק ✓ – הדבק בקבוצה' : 'העתק סיכום') + '</button></div>';
@@ -628,8 +712,8 @@
         (st.error ? '<div class="names"><button class="name" data-act="retry">נסה שוב</button><button class="ghost" data-act="switch">החלף שם</button></div>' : '') + '</main>';
       return;
     }
-    var body = st.screen === 'week' ? viewWeek() : st.screen === 'month' ? viewMonth() : viewSettings();
-    app.innerHTML = body + '<nav class="tabs">' + [['week', 'בית', '⌂'], ['month', 'לוח שנה', '▦'], ['settings', 'הגדרות', '⚙']].map(function (t) {
+    var body = st.screen === 'week' ? viewWeek() : st.screen === 'month' ? viewMonth() : st.screen === 'learn' ? viewLearn() : viewSettings();
+    app.innerHTML = body + '<nav class="tabs">' + [['week', 'בית', '⌂'], ['month', 'לוח שנה', '▦'], ['learn', 'ידע', '✦'], ['settings', 'הגדרות', '⚙']].map(function (t) {
       return '<button data-act="tab" data-t="' + t[0] + '" class="' + (st.screen === t[0] ? 'on' : '') + '"><i>' + t[2] + '</i>' + t[1] + '</button>';
     }).join('') + '</nav>';
   }
@@ -649,7 +733,7 @@
     switch (a) {
       case 'pick': st.athlete = d.name; lsSet('athlete', st.athlete); st.screen = 'week'; lsSet('screen', 'week'); st.weekNo = null; st.weeks = []; loadData(); render(); window.scrollTo(0, 0); break;
       case 'retry': loadData(); render(); break;
-      case 'switch': st.athlete = null; lsSet('athlete', null); st.weekNo = null; st.weeks = []; render(); break;
+      case 'switch': pf.msg = ''; st.athlete = null; lsSet('athlete', null); st.weekNo = null; st.weeks = []; render(); break;
       case 'tab': st.screen = d.t; lsSet('screen', st.screen); render(); window.scrollTo(0, 0); break;
       case 'prev': shiftWeek(-1); break;
       case 'next': shiftWeek(1); break;
@@ -673,6 +757,10 @@
       case 'cretry': if (!st.weeks.length) coachInit(); else coachLoadWeek(); break;
       case 'ccopy': coachCopy(); break;
       case 'cpin': coachSubmitPin(); break;
+      case 'pfsave': saveProfile(); break;
+      case 'pfdist': $('#pf-dist').value = d.v; pfRecalc('dist'); break;
+      case 'kcat': kn.cat = d.c; render(); break;
+      case 'article': openArticle(d.id); break;
       case 'gocoach': location.href = location.pathname + '?coach=1'; break;
       case 'gohome': location.href = location.pathname; break;
       case 'mprev': case 'mnext': {
@@ -695,6 +783,10 @@
   });
   // שדות בטופס סימון הביצוע
   document.addEventListener('input', function (e) {
+    var id = e.target.id;
+    if (id === 'pf-time') return pfRecalc('time');
+    if (id === 'pf-pace') return pfRecalc('pace');
+    if (id === 'pf-dist') return pfRecalc('dist');
     if (!lf) return;
     var t = e.target;
     if (t.id === 'lf-km') { lf.kmTouched = true; return; }

@@ -259,3 +259,51 @@ main { max-width: 640px; margin: 0 auto; padding: 0 14px calc(92px + env(safe-ar
   .panel { max-width: 520px; border-radius: 22px 22px 0 0; }
   .tabs button { max-width: 160px; }
 }
+
+/* ---- פרופיל ---- */
+.pfname { font-size: 1.2rem; font-weight: 700; }
+.pfchips { display: flex; gap: 6px; margin-top: 8px; }
+.pfchips button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 12px; font-size: .82rem; }
+.pfrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pfrow input { font: inherit; font-size: 1rem; font-weight: 400; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); width: 100%; direction: ltr; text-align: right; }
+.prof .fld input { direction: ltr; text-align: right; }
+.hint.start { text-align: start; margin: 8px 0 0; }
+.pfok { margin-top: 10px; color: var(--s-cooldown); font-weight: 600; }
+
+/* ---- ידע ---- */
+.learn { padding-top: 16px; }
+.khead h2 { font-size: 1.4rem; }
+.khead p { margin: 2px 0 10px; color: var(--mute); font-size: .85rem; }
+.kchips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin: 0 -14px; padding-inline: 14px; scrollbar-width: none; }
+.kchips::-webkit-scrollbar { display: none; }
+.kchips button { flex: none; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 14px; font-size: .88rem; font-weight: 500; }
+.kchips button.on { background: var(--s-cooldown); border-color: var(--s-cooldown); color: #fff; }
+.ksec { font-size: 1.05rem; margin: 16px 0 8px; }
+.kgrid { display: grid; gap: 10px; }
+.kcard { display: grid; gap: 6px; text-align: start; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; box-shadow: var(--shadow); }
+.kcard b { font-size: 1.05rem; }
+.kcard p { margin: 0; color: var(--mute); font-size: .9rem; }
+.kmore { color: var(--s-cooldown); font-weight: 600; font-size: .9rem; }
+.ktags { display: flex; gap: 6px; flex-wrap: wrap; }
+.ktag { font-size: .74rem; background: color-mix(in srgb, var(--s-cooldown) 12%, var(--card)); color: var(--s-cooldown); border-radius: 999px; padding: 2px 10px; font-weight: 600; }
+.krec { font-size: .74rem; background: color-mix(in srgb, var(--t-test) 16%, var(--card)); color: #a86f00; border-radius: 999px; padding: 2px 10px; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .krec { color: var(--t-test); } }
+.kart h3 { margin: 8px 0 4px; font-size: 1.3rem; }
+.kart .klead { color: var(--mute); margin: 0 0 8px; }
+.kart h4 { margin: 16px 0 4px; font-size: 1.02rem; }
+.kart p { margin: 4px 0; line-height: 1.6; }
+.kart ul { margin: 4px 0; padding-inline-start: 20px; line-height: 1.6; }
+.kart li { margin: 2px 0; }
+.kzones { display: grid; gap: 6px; margin: 6px 0; }
+.kz { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; background: var(--card); border-radius: 12px; padding: 8px 12px; border-inline-start: 5px solid var(--zc); }
+.kz span { grid-column: 1 / -1; color: var(--mute); font-size: .88rem; }
+.kz small { color: var(--mute); }
+.kz.z1 { --zc: #9aa7b3; } .kz.z2 { --zc: var(--t-easy); } .kz.z3 { --zc: var(--t-test); } .kz.z4 { --zc: var(--t-quality); } .kz.z5 { --zc: #c2185b; }
+.ktip { margin-top: 16px; background: var(--sun-soft); border: 1px solid var(--sun); border-radius: 14px; padding: 12px 14px; line-height: 1.6; }
+.ktip b { display: block; margin-bottom: 2px; }
+.klink { color: var(--s-cooldown); font-weight: 600; text-decoration: underline; }
+
+/* ---- מטרות במסך המאמן ---- */
+.goals { width: 100%; border-collapse: collapse; font-size: .88rem; font-variant-numeric: tabular-nums; }
+.goals th, .goals td { text-align: start; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.goals thead th { color: var(--mute); font-weight: 500; font-size: .78rem; }

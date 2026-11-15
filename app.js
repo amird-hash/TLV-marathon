@@ -198,10 +198,10 @@
       todays.forEach(function (x) { h += runCard(x.w, x.r); });
     } else {
       var nx = nextRunAfter(today);
-      h += '<div class="tlabel">' + (found.state === 'before' ? 'התכנית עוד לא התחילה' : 'היום · ' + dayName + ' ' + dm(today)) + '</div>' +
-        '<div class="trest"><b>' + (found.state === 'before' ? 'מתחילים בקרוב' : 'היום מנוחה') + '</b>' +
+      h += '<div class="tlabel">היום · ' + dayName + ' ' + dm(today) + '</div>' +
+        '<div class="trest"><b>היום מנוחה</b>' +
         (nx ? '<div class="tnext" data-act="open" data-week="' + nx.w.week + '" data-key="' + nx.r.key + '">' +
-          '<span class="tn-l">' + (found.state === 'before' ? 'הריצה הראשונה' : 'הריצה הבאה') + ' · ' + esc(nx.r.day) + ' ' + dm(nx.r.date) + '</span>' +
+          '<span class="tn-l">הריצה הבאה · ' + esc(nx.r.day) + ' ' + dm(nx.r.date) + '</span>' +
           '<span class="tn-r">' + chip(nx.r.type) + '<span class="rkm">' + ltr(runKmLabel(nx.r)) + '</span></span>' +
           '<span class="tn-s">' + ltr(runSummary(nx.r)) + '</span></div>' : '') + '</div>';
     }
@@ -218,10 +218,6 @@
     var done = weekDoneKm(w);
     var left = daysBetween(st.today, CFG.MARATHON_DATE);
     var h = '<main class="week" id="weekMain">';
-    if (found.state === 'before' && w.week === found.week.week) {
-      var d0 = found.week.weekStart;
-      h += '<div class="banner">התכנית מתחילה ביום שני ' + dm(d0) + ' · זה שבוע ' + found.week.week + '</div>';
-    }
     h += '<header class="whead ' + PERIOD_CLASS(w.period) + '">' +
       '<div class="wtop"><button class="nav" data-act="prev" ' + (idx <= 0 ? 'disabled' : '') + ' aria-label="שבוע קודם">→</button>' +
       '<div class="wtitle"><div class="wnum">שבוע ' + w.week + '</div><div class="wper">' + esc(w.period) + ' · ' + (w.weekStart ? '<bdi dir="ltr">' + dm(w.weekStart) + ' – ' + dm(S.addDays(w.weekStart, 6)) + '</bdi>' : esc(w.dates)) + '</div></div>' +

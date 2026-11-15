@@ -705,7 +705,7 @@
       return;
     }
     var body = st.screen === 'week' ? viewWeek() : st.screen === 'month' ? viewMonth() : st.screen === 'learn' ? viewLearn() : viewSettings();
-    app.innerHTML = body + '<nav class="tabs">' + [['week', 'בית', '⌂'], ['month', 'לוח שנה', '▦'], ['learn', 'ידע', '✦'], ['settings', 'הגדרות', '⚙']].map(function (t) {
+    app.innerHTML = body + '<nav class="tabs">' + [['week', 'בית', '⌂'], ['month', 'לוח שנה', '▦'], ['learn', 'ידע', '✦'], ['settings', 'הגדרות', '⚙\uFE0E']].map(function (t) {
       return '<button data-act="tab" data-t="' + t[0] + '" class="' + (st.screen === t[0] ? 'on' : '') + '"><i>' + t[2] + '</i>' + t[1] + '</button>';
     }).join('') + '</nav>';
   }

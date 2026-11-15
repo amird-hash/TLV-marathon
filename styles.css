@@ -307,3 +307,14 @@ main { max-width: 640px; margin: 0 auto; padding: 0 14px calc(92px + env(safe-ar
 .goals { width: 100%; border-collapse: collapse; font-size: .88rem; font-variant-numeric: tabular-nums; }
 .goals th, .goals td { text-align: start; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 .goals thead th { color: var(--mute); font-weight: 500; font-size: .78rem; }
+
+/* לוח שנה: תאים גבוהים יותר, ועמודת השבוע באפור אחיד (בלי צבע תקופה) */
+.grid { gap: 4px; }
+.gh { font-size: .8rem; padding: 4px 0; }
+.gw, .gd { min-height: 92px; border-radius: 12px; }
+.gw { background: color-mix(in srgb, var(--mute) 8%, var(--bg)); border: 1px solid color-mix(in srgb, var(--mute) 28%, transparent); color: var(--mute); }
+.gw b { color: var(--ink); font-size: 1.1rem; }
+.gw small { font-size: .64rem; }
+.gd { padding-top: 8px; gap: 5px; }
+.gd .dn { font-size: .9rem; }
+.pill { min-height: 9px; }

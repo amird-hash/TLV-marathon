@@ -177,36 +177,6 @@
       }).join('') + '</div></main>';
   }
 
-  // ---------- כרטיס "היום" בראש הבית ----------
-  function nextRunAfter(date) {
-    var best = null;
-    st.weeks.forEach(function (w) {
-      sched[w.week].runs.forEach(function (r) {
-        if (r.date && r.date > date && (!best || r.date < best.r.date)) best = { w: w, r: r };
-      });
-    });
-    return best;
-  }
-  function todayHero(found) {
-    if (found.state === 'after') return '';
-    var today = st.today, h = '<section class="thero">';
-    var todays = [];
-    st.weeks.forEach(function (w) { sched[w.week].runs.forEach(function (r) { if (r.date === today) todays.push({ w: w, r: r }); }); });
-    var dayName = S.DAYS[(new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7];
-    if (todays.length) {
-      h += '<div class="tlabel">האימון של היום</div>';
-      todays.forEach(function (x) { h += runCard(x.w, x.r); });
-    } else {
-      var nx = nextRunAfter(today);
-      h += '<div class="trest"><div class="trh"><b>היום מנוחה</b><span>' + dayName + ' ' + dm(today) + '</span></div>' +
-        (nx ? '<div class="tnext" data-act="open" data-week="' + nx.w.week + '" data-key="' + nx.r.key + '">' +
-          '<span class="tn-l">הריצה הבאה · ' + esc(nx.r.day) + ' ' + dm(nx.r.date) + '</span>' +
-          '<span class="tn-r">' + chip(nx.r.type) + '<span class="rkm">' + ltr(runKmLabel(nx.r)) + '</span></span>' +
-          '<span class="tn-s">' + ltr(runSummary(nx.r)) + '</span></div>' : '') + '</div>';
-    }
-    return h + '</section>';
-  }
-
   // ---------- מסך שבוע ----------
   function viewWeek() {
     var found = S.findWeek(st.weeks, st.today);
@@ -224,8 +194,13 @@
       '<div class="wstats"><div><b>' + ltr(w.kmText || '—') + '</b><span>ק״מ מתוכנן</span></div>' +
       '<div><b>' + fmtKm(done) + '</b><span>ק״מ בוצע</span></div>' +
       '<div><b>' + (left > 0 ? left : 0) + '</b><span>ימים למרתון</span></div></div>' + progressBar(w.kmPlanned || firstNum(w.kmText), done) + '</header>';
-    if (w.week === found.week.week) h += todayHero(found);
     h += '<div class="days">';
+    // לפני תחילת התכנית: שורת "היום" מעל השבוע הראשון, כדי שתמיד יהיה ברור איפה אנחנו
+    if (found.state === 'before' && w.week === found.week.week) {
+      var tdn = S.DAYS[(new Date(st.today + 'T00:00:00Z').getUTCDay() + 6) % 7];
+      h += '<section class="day today"><div class="dlabel"><b>' + tdn + '</b><span>' + dm(st.today) + '</span><em>היום</em></div>' +
+        '<div class="druns"><div class="rest">מנוחה</div></div></section>';
+    }
     S.DAYS.forEach(function (dn, i) {
       var date = w.weekStart ? S.addDays(w.weekStart, i) : null;
       var runs = s.byDay[i];

@@ -3,6 +3,8 @@ window.CONFIG = {
   SAMPLE: false,
   API_URL: 'https://script.google.com/macros/s/AKfycbyhh_j74ri4FRebR09nRZKQEJ1kGuHvNUYqGkJL120-1OGLAegAVQ0PRI1piptPGox2Ng/exec',
   MARATHON_DATE: '2027-02-26',
+  // מי רואה בהגדרות כפתור למסך המאמן (הקוד עצמו נבדק בשרת)
+  COACH_NAME: 'אמיר',
   // חברים לדוגמה (בשלב 3 הרשימה מגיעה מהלשונית Athletes)
   SAMPLE_ATHLETES: [
     { name: 'אמיר', plan: 'תכנית סופית' },

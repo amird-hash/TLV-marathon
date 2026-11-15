@@ -242,3 +242,6 @@ main { max-width: 640px; margin: 0 auto; padding: 0 14px calc(92px + env(safe-ar
 .priv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: .88rem; }
 .priv dt { color: var(--mute); } .priv dd { margin: 0; font-weight: 500; white-space: pre-wrap; }
 .wa { width: 100%; font: inherit; font-size: .88rem; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); resize: vertical; }
+
+.pinbox { max-width: 280px; margin: 0 auto; display: grid; gap: 4px; }
+.pinbox input { font: inherit; font-size: 1.4rem; text-align: center; letter-spacing: .3em; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); }

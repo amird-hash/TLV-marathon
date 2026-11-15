@@ -305,6 +305,7 @@
     return '<main class="settings"><h2>הגדרות</h2><div class="card"><div class="lbl">אני</div><div class="val">' + esc(st.athlete) + ' · ' + esc(plan()) + '</div>' +
       '<button class="ghost" data-act="switch">החלף שם</button></div>' +
       '<div class="card"><div class="lbl">מקרא</div>' + legend() + '<div class="steplg"><span class="s-warmup">חימום</span><span class="s-main">סט מרכזי</span><span class="s-cooldown">שחרור</span></div></div>' +
+      (st.athlete === (CFG.COACH_NAME || 'אמיר') ? '<div class="card"><div class="lbl">מאמן</div><button class="primary" data-act="gocoach">מסך מאמן</button></div>' : '') +
       '<div class="card"><div class="lbl">הזזות אישיות</div><div class="val">' + st.moves.filter(function (x) { return x['שם'] === st.athlete; }).length + ' שינויים</div></div>' +
       (CFG.SAMPLE ? '<div class="card note">מצב דוגמה: הנתונים מקובץ מקומי, והיומן (✓) מדומה.</div>' : '') + '</main>';
   }
@@ -511,7 +512,7 @@
   }
 
   // ---------- מסך מאמן (?coach=1) ----------
-  var cs = { week: null, data: {}, loading: false, error: null, copied: false };
+  var cs = { week: null, data: {}, loading: false, error: null, copied: false, needPin: false, pinError: '' };
   function coachInit() {
     document.title = 'מאמן · מרתון תל אביב 2027';
     if (CFG.SAMPLE) {
@@ -519,6 +520,7 @@
       applyPlan({ plan: S.valuesToRows(P0.tabs['תכנית סופית'], false), settings: P0.settings, days: P0.days, schedule: [], log: [] });
       cs.week = S.findWeek(st.weeks, st.today).week.week; coachRender(); return;
     }
+    if (!lsGet('coachPin', '')) cs.needPin = true;
     var cached = lsGet('coachBase', null);
     if (cached) { applyPlan(cached); cs.week = S.findWeek(st.weeks, st.today).week.week; }
     coachRender();
@@ -531,14 +533,16 @@
       res.schedule = []; res.log = [];
       lsSet('coachBase', res); applyPlan(res);
       if (cs.week === null) cs.week = S.findWeek(st.weeks, st.today).week.week;
-      coachLoadWeek();
+      if (cs.needPin) coachRender(); else coachLoadWeek();
     }).catch(function (err) { cs.error = err.message && !/fetch|Failed/i.test(err.message) ? err.message : NET_ERR; coachRender(); });
   }
   function coachLoadWeek() {
     var wk = cs.week;
     if (CFG.SAMPLE) { coachRender(); return; }
+    if (cs.needPin) { coachRender(); return; }
     cs.loading = true; cs.error = null; coachRender();
-    apiGet({ action: 'coach', week: wk }).then(function (res) {
+    apiPost({ action: 'coach', week: wk, coachPin: lsGet('coachPin', '') }).then(function (res) {
+      if (res.needPin) { lsSet('coachPin', ''); cs.needPin = true; cs.pinError = res.error; cs.loading = false; coachRender(); return; }
       if (!res.ok) throw new Error(res.error);
       cs.data[wk] = res; cs.loading = false; coachRender();
     }).catch(function (err) {
@@ -565,7 +569,14 @@
       return { name: a.name, cells: cells, km: km, n: n, pain: pain };
     });
   }
+  function coachPinView() {
+    return '<main class="pick"><div class="hero-sun"></div><h1>מסך מאמן</h1><p class="sub">הקלד את קוד המאמן</p>' +
+      '<div class="pinbox"><input id="cpin" type="password" inputmode="numeric" autocomplete="off" maxlength="12" aria-label="קוד מאמן">' +
+      '<button class="primary" data-act="cpin">כניסה</button>' + (cs.pinError ? '<div class="lerr">' + esc(cs.pinError) + '</div>' : '') +
+      '<button class="ghost" data-act="gohome">חזרה לאפליקציה</button></div></main>';
+  }
   function coachView() {
+    if (cs.needPin && !CFG.SAMPLE) return coachPinView();
     if (!st.weeks.length) return '<main class="pick"><div class="hero-sun"></div><h1>מסך מאמן</h1><p class="sub">' + esc(cs.error || 'טוען…') + '</p>' +
       (cs.error ? '<div class="names"><button class="name" data-act="cretry">נסה שוב</button></div>' : '') + '</main>';
     var w = weekByNo(cs.week) || st.weeks[0], idx = st.weeks.indexOf(w);
@@ -602,7 +613,7 @@
     var text = coachSummary(w, base, rows);
     h += '<div class="card"><div class="lbl">סיכום לוואטסאפ</div><textarea id="wa" class="wa" rows="8" readonly>' + esc(text) + '</textarea>' +
       '<button class="primary" data-act="ccopy">' + (cs.copied ? 'הועתק ✓ – הדבק בקבוצה' : 'העתק סיכום') + '</button></div>';
-    return h + '</main>';
+    return h + '<button class="ghost" data-act="gohome">חזרה לאפליקציה</button></main>';
   }
   function coachSummary(w, base, rows) {
     var t = '🏃 מרתון ת״א · שבוע ' + w.week + (w.weekStart ? ' (' + dm(w.weekStart) + '–' + dm(S.addDays(w.weekStart, 6)) + ')' : '') + ' · ' + w.period + '\n';
@@ -618,7 +629,13 @@
     if (next) t += '\nשבוע הבא: שבוע ' + next.week + ' · ' + next.period + ' · ' + (next.kmText || '—') + ' ק״מ';
     return t;
   }
-  function coachRender() { $('#app').innerHTML = coachView(); }
+  function coachRender() { $('#app').innerHTML = coachView(); var pi = $('#cpin'); if (pi) pi.focus(); }
+  function coachSubmitPin() {
+    var v = ($('#cpin') || {}).value || '';
+    if (!v) { cs.pinError = 'הקלד קוד'; coachRender(); return; }
+    lsSet('coachPin', v); cs.needPin = false; cs.pinError = ''; cs.data = {};
+    if (st.weeks.length) coachLoadWeek(); else coachInit();
+  }
   function coachCopy() {
     var ta = $('#wa'), text = ta ? ta.value : '';
     var ok = function () { cs.copied = true; coachRender(); setTimeout(function () { cs.copied = false; coachRender(); }, 2500); };
@@ -679,6 +696,9 @@
       }
       case 'cretry': if (!st.weeks.length) coachInit(); else coachLoadWeek(); break;
       case 'ccopy': coachCopy(); break;
+      case 'cpin': coachSubmitPin(); break;
+      case 'gocoach': location.href = location.pathname + '?coach=1'; break;
+      case 'gohome': location.href = location.pathname; break;
       case 'mprev': case 'mnext': {
         var y = +st.month.slice(0, 4), m = +st.month.slice(5, 7) + (a === 'mnext' ? 1 : -1);
         if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; }
@@ -693,7 +713,10 @@
       }
     }
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { lf = null; closeSheet(); } });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { lf = null; closeSheet(); }
+    if (e.key === 'Enter' && e.target.id === 'cpin') coachSubmitPin();
+  });
   // שדות בטופס סימון הביצוע
   document.addEventListener('input', function (e) {
     if (!lf) return;

@@ -13,10 +13,10 @@
 
   var DEFAULT_DAYS = {
     r1: { day: 'שני', locked: false },
-    r2: { day: 'שלישי', locked: true },
+    r2: { day: 'שלישי', locked: false },
     r3: { day: 'חמישי', locked: false },
     r4: { day: 'שבת', locked: false },
-    r5: { day: 'שישי', locked: true }
+    r5: { day: 'שישי', locked: false }
   };
 
   function dayIndex(name) { return DAYS.indexOf(String(name || '').trim()); }

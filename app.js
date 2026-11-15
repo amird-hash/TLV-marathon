@@ -53,7 +53,7 @@
     today: qs('today') || S.todayISO(),
     athlete: lsGet('athlete', null),
     screen: lsGet('screen', 'week'),
-    weekNo: null, month: null, monthView: 'grid',
+    weekNo: null, month: null,
     weeks: [], settings: [], days: S.DEFAULT_DAYS, moves: CFG.SAMPLE ? lsGet('moves', []) : [], log: {}, apiLog: [],
     athletes: CFG.SAMPLE ? CFG.SAMPLE_ATHLETES : lsGet('athletes', []), loading: false, error: null
   };
@@ -171,8 +171,8 @@
   function runKmLabel(r) { return r.km === null ? '' : fmtKm(r.km) + ' ק״מ'; }
 
   function legend() {
-    return '<div class="legend">' + ['easy', 'quality', 'long', 'recovery', 'test', 'race', 'cross'].map(function (t) {
-      return '<span class="lg"><i class="dot t-' + t + '"></i>' + TYPE[t].name + '</span>';
+    return '<div class="legend">' + [['easy', 'קלה'], ['quality', 'איכות'], ['long', 'ארוכה'], ['test', 'טסט / תחרות']].map(function (t) {
+      return '<span class="lg"><i class="dot t-' + t[0] + '"></i>' + t[1] + '</span>';
     }).join('') + '</div>';
   }
 
@@ -270,12 +270,11 @@
       '</article>';
   }
 
-  // ---------- מסך חודש ----------
+  // ---------- מסך לוח שנה ----------
   function viewMonth() {
     if (!st.month) { var f = S.findWeek(st.weeks, st.today).week.weekStart; st.month = f.slice(0, 7); if (st.today.slice(0, 7) >= st.weeks[0].weekStart.slice(0, 7)) st.month = st.today.slice(0, 7); }
-    var h = '<main class="month"><div class="seg"><button data-act="mview" data-v="grid" class="' + (st.monthView === 'grid' ? 'on' : '') + '">לוח שנה</button>' +
-      '<button data-act="mview" data-v="road" class="' + (st.monthView === 'road' ? 'on' : '') + '">מפת דרכים</button></div>';
-    h += st.monthView === 'grid' ? monthGrid() : roadmap();
+    var h = '<main class="month">';
+    h += monthGrid();
     return h + legend() + '</main>';
   }
   function monthGrid() {
@@ -306,17 +305,6 @@
       }
     }
     return h + '</div>';
-  }
-  function roadmap() {
-    var max = 0;
-    st.weeks.forEach(function (w) { max = Math.max(max, w.kmPlanned || firstNum(w.kmText)); });
-    var cur = S.findWeek(st.weeks, st.today).week.week;
-    return '<div class="road">' + st.weeks.map(function (w) {
-      var km = w.kmPlanned || firstNum(w.kmText), done = weekDoneKm(w);
-      return '<button class="rw ' + PERIOD_CLASS(w.period) + (w.week === cur ? ' cur' : '') + '" data-act="gotoweek" data-week="' + w.week + '">' +
-        '<span class="n">' + w.week + '</span><span class="track"><i class="plan" style="width:' + Math.round(km / max * 100) + '%"></i>' +
-        '<i class="act" style="width:' + Math.round(done / max * 100) + '%"></i></span><span class="k">' + ltr(w.kmText) + '</span></button>';
-    }).join('') + '<p class="hint">כל שורה היא שבוע. הפס הבהיר הוא המתוכנן, הכהה מה שבוצע. לחיצה פותחת את השבוע.</p></div>';
   }
 
   // ---------- הגדרות ----------
@@ -416,7 +404,7 @@
       return;
     }
     var body = st.screen === 'week' ? viewWeek() : st.screen === 'month' ? viewMonth() : viewSettings();
-    app.innerHTML = body + '<nav class="tabs">' + [['week', 'בית', '⌂'], ['month', 'חודש', '▦'], ['settings', 'הגדרות', '⚙']].map(function (t) {
+    app.innerHTML = body + '<nav class="tabs">' + [['week', 'בית', '⌂'], ['month', 'לוח שנה', '▦'], ['settings', 'הגדרות', '⚙']].map(function (t) {
       return '<button data-act="tab" data-t="' + t[0] + '" class="' + (st.screen === t[0] ? 'on' : '') + '"><i>' + t[2] + '</i>' + t[1] + '</button>';
     }).join('') + '</nav>';
   }
@@ -445,7 +433,6 @@
       case 'moveto': doMove(+d.week, d.key, d.day); break;
       case 'resetweek': resetWeek(); break;
       case 'close': closeSheet(); break;
-      case 'mview': st.monthView = d.v; render(); break;
       case 'mprev': case 'mnext': {
         var y = +st.month.slice(0, 4), m = +st.month.slice(5, 7) + (a === 'mnext' ? 1 : -1);
         if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; }

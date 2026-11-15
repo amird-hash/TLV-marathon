@@ -194,12 +194,11 @@
     st.weeks.forEach(function (w) { sched[w.week].runs.forEach(function (r) { if (r.date === today) todays.push({ w: w, r: r }); }); });
     var dayName = S.DAYS[(new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7];
     if (todays.length) {
-      h += '<div class="tlabel">היום · ' + dayName + ' ' + dm(today) + '</div>';
+      h += '<div class="tlabel">האימון של היום</div>';
       todays.forEach(function (x) { h += runCard(x.w, x.r); });
     } else {
       var nx = nextRunAfter(today);
-      h += '<div class="tlabel">היום · ' + dayName + ' ' + dm(today) + '</div>' +
-        '<div class="trest"><b>היום מנוחה</b>' +
+      h += '<div class="trest"><div class="trh"><b>היום מנוחה</b><span>' + dayName + ' ' + dm(today) + '</span></div>' +
         (nx ? '<div class="tnext" data-act="open" data-week="' + nx.w.week + '" data-key="' + nx.r.key + '">' +
           '<span class="tn-l">הריצה הבאה · ' + esc(nx.r.day) + ' ' + dm(nx.r.date) + '</span>' +
           '<span class="tn-r">' + chip(nx.r.type) + '<span class="rkm">' + ltr(runKmLabel(nx.r)) + '</span></span>' +

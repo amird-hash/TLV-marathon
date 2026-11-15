@@ -695,6 +695,15 @@
     try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
   }
 
+  // אייקונים לסרגל התחתון: כולם באותו גודל ובאותו עובי קו
+  var SVG = function (d) { return '<svg class="ti" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; };
+  var ICON = {
+    week: SVG('<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/>'),
+    month: SVG('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/>'),
+    learn: SVG('<path d="M12 6.5C10 5 7.5 4.5 4 4.5v14c3.5 0 6 .5 8 2 2-1.5 4.5-2 8-2v-14c-3.5 0-6 .5-8 2z"/><path d="M12 6.5v14"/>'),
+    settings: SVG('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')
+  };
+
   // ---------- ציור ראשי ----------
   function render() {
     var app = $('#app');
@@ -705,8 +714,8 @@
       return;
     }
     var body = st.screen === 'week' ? viewWeek() : st.screen === 'month' ? viewMonth() : st.screen === 'learn' ? viewLearn() : viewSettings();
-    app.innerHTML = body + '<nav class="tabs">' + [['week', 'בית', '⌂'], ['month', 'לוח שנה', '▦'], ['learn', 'ידע', '✦'], ['settings', 'הגדרות', '⚙\uFE0E']].map(function (t) {
-      return '<button data-act="tab" data-t="' + t[0] + '" class="' + (st.screen === t[0] ? 'on' : '') + '"><i>' + t[2] + '</i>' + t[1] + '</button>';
+    app.innerHTML = body + '<nav class="tabs">' + [['week', 'בית'], ['month', 'לוח שנה'], ['learn', 'ידע'], ['settings', 'הגדרות']].map(function (t) {
+      return '<button data-act="tab" data-t="' + t[0] + '" class="' + (st.screen === t[0] ? 'on' : '') + '">' + ICON[t[0]] + t[1] + '</button>';
     }).join('') + '</nav>';
   }
 

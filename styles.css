@@ -318,3 +318,5 @@ main { max-width: 640px; margin: 0 auto; padding: 0 14px calc(92px + env(safe-ar
 .gd { padding-top: 8px; gap: 5px; }
 .gd .dn { font-size: .9rem; }
 .pill { min-height: 9px; }
+
+.tabs .ti { display: block; width: 24px; height: 24px; margin: 2px auto 3px; }

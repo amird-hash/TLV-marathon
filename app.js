@@ -813,6 +813,23 @@
     if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 2) shiftWeek(dx > 0 ? -1 : 1);
   }, { passive: true });
 
+  // ---------- עדכון גרסה ----------
+  // אפליקציה שנשמרה במסך הבית באייפון לא נטענת מחדש מעצמה. בכל חזרה לאפליקציה בודקים אם עלתה גרסה חדשה,
+  // ואם כן – טוענים מחדש עם כתובת חדשה (כדי לעקוף את הזיכרון של הדפדפן).
+  function checkUpdate() {
+    if (!window.APP_V || !window.fetch) return;
+    if (lf || !$('#sheet').hidden) return; // לא מפריעים באמצע טופס או חלון פתוח
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.v || +j.v === +window.APP_V) return;
+      if (new RegExp('[?&]v=' + j.v + '(&|$)').test(location.search)) return; // כבר ניסינו – לא נכנסים ללולאה
+      var q = location.search.replace(/^\?/, '').split('&').filter(function (x) { return x && !/^v=/.test(x); });
+      q.push('v=' + j.v);
+      location.replace(location.pathname + '?' + q.join('&'));
+    }).catch(function () { /* בלי רשת – ננסה בפעם הבאה */ });
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkUpdate(); });
+  setTimeout(checkUpdate, 1500);
+
   // ---------- התחלה ----------
   if (qs('coach')) { coachInit(); }
   else {
